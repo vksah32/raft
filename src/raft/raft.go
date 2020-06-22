@@ -19,12 +19,15 @@ package raft
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"../labrpc"
 )
+
+const Debug = false
 
 // import "bytes"
 // import "../labgob"
@@ -228,7 +231,7 @@ func (rf *Raft) sendRequestVote(server int, electionTerm int) {
 	args.LastLogIndex = rf.lastLogIndex
 
 	reply := RequestVoteReply{}
-	rf.logf("Sending rfc for sendRequestVote to %d", server)
+	rf.logf("Sending sendRequestVote rfc call to %d", server)
 	ok := rf.peers[server].Call("Raft.RequestVote", &args, &reply)
 	if ok {
 		if !reply.VoteGranted {
@@ -245,7 +248,7 @@ func (rf *Raft) sendRequestVote(server int, electionTerm int) {
 			if rf.term == electionTerm && !rf.isLeader {
 				rf.numVotes++
 				if elected(rf.numVotes, len(rf.peers)) {
-					rf.logf("Elected leader")
+					log.Printf("Node %d elected leader", rf.me)
 					rf.isLeader = true
 					go func() { rf.stopElectionTimerCh <- true }()
 					go rf.sendHeartBeats()
@@ -380,8 +383,6 @@ func (rf *Raft) leaderElectionThread() {
 			// stop timer if not already fired
 			// if timer already fired but channel not drained drain it
 			// See documentation for timer.Reset
-
-			rf.logf("got something on reset election timer")
 			stopped := rf.electionTimer.Stop()
 
 			if stopped {
@@ -470,8 +471,6 @@ func (rf *Raft) startLeaderElection() {
 
 	// rf.resetElectionTimerCh <- true
 	for server, _ := range rf.peers {
-
-		rf.logf("Requesting vote loop, current server %d", server)
 		if server == rf.me {
 			// skip self, already voted for self
 			continue
@@ -491,8 +490,10 @@ func (rf *Raft) getLastLogterm() int {
 }
 
 func (rf *Raft) logf(format string, v ...interface{}) {
-	message := fmt.Sprintf("time: %s: Node: %d ; %s \n", getCurrentTimeString(), rf.me, format)
-	fmt.Printf(message, v...)
+	if Debug {
+		message := fmt.Sprintf("time: %s: Node: %d ; %s \n", getCurrentTimeString(), rf.me, format)
+		fmt.Printf(message, v...)
+	}
 }
 
 //
